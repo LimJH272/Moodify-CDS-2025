@@ -20,14 +20,19 @@ SUTD 50.038 Computational Data Science Project (2025)
 ## Data Preparation
 
 ## Installation & Setup
-Python Version: 3.12 or lower
+- Python (version 3.12 or lower)
+- PyTorch (torch, torchaudio)
 
 ### 1. Pull this repository onto your local machine
 ```cmd
 git pull <GitHub URL>
 ```
 
-### 2. Create virtual environment (e.g. conda, virtualenv, venv)
+### 2. Create virtual environment (conda recommended)
+```cmd
+conda create -n python312 python=3.12 anaconda
+conda activate python312
+```
 
 ### 3. Install Python dependencies
 ```cmd
