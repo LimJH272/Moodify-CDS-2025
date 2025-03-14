@@ -5,35 +5,78 @@ import json
 
 import torch, torchaudio
 
-from helpers import *
+import python_helpers as pyh
+import pytorch_helpers as pth
 
-data_subdirs = {
-    'SoundTracks': ['Set1', 'Set2'],
-}
-
+ROOT_DIR = pyh.get_project_root_dir()
 TARGET_SAMPLE_RATE = 44100
 TARGET_AUDIO_LENGTH = 15 * TARGET_SAMPLE_RATE
 
-def get_main_data_dir():
-    return os.path.join(get_project_root_dir(), 'data')
+LABEL_TO_INT = {
+    "Happy": 0,
+    "Sad": 1,
+    "Anger": 2,
+    "Neutral": 3,
+}
+INT_TO_LABEL = {v: k for k,v in LABEL_TO_INT.items()}
 
-def get_data_subdir_paths(data_subdir_map: dict[str, (dict|list)], curr_dir: str=get_main_data_dir()) -> list[str]:
-    data_subdir_paths = []
-    for dset, subdirs in data_subdir_map.items():
-        if isinstance(subdirs, dict):
-            data_subdir_paths.extend(get_data_subdir_paths(subdirs, os.path.join(curr_dir, dset)))
-        elif isinstance(subdirs, list):
-            data_subdir_paths.extend([os.path.join(curr_dir, dset, d) for d in subdirs])
-        else:
-            raise ValueError('Why are you here?', dset, subdirs)
+def get_labels_from_file(path: str, audio_ref_col: str, label_col: str, label_cats: list[str], label_mapping: dict[str, str]) -> pd.DataFrame:
+    _, file_ext = os.path.splitext(path)
+    if file_ext == '.csv':
+        df = pd.read_csv(path, low_memory=False, dtype={audio_ref_col: str})
+    elif file_ext == '.xls' or file_ext == '.xlsx':
+        df = pd.read_excel(path, dtype={audio_ref_col: str})
+
+    df = df.loc[df[label_col].apply(lambda l: l in label_cats), [audio_ref_col, label_col]]
+    df[label_col] = df[label_col].apply(lambda l: label_mapping[l])
     
-    return data_subdir_paths
+    return df
 
-def get_audio_files_paths(data_dir_paths_ls: list[str]) -> list[str]:
-    allowed_extensions = ['.mp3', '.wav']
-    return [os.path.join(dir_path, file) for dir_path in data_dir_paths_ls for file in os.listdir(dir_path) if os.path.splitext(file)[1] in allowed_extensions]
+class Stereo2Mono(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.weights = torch.tensor([0.5, 0.5], requires_grad=False).view(2, 1)
 
-def split_waveform_segments(wf: torch.Tensor, target_len: int, k: int=TARGET_SAMPLE_RATE) -> list[torch.Tensor]:
+    def forward(self, waveform: torch.Tensor) -> torch.Tensor:
+        if len(waveform.shape) == 2 and waveform.shape[0] == 2:
+            return torch.sum(waveform * self.weights, dim=0) * np.sqrt(2)
+        else:
+            raise ValueError(f'{waveform.shape} is not a stereo waveform')
+        
+def path_to_waveform_tensor(path: str, sample_rate=TARGET_SAMPLE_RATE):
+    waveform, sr = torchaudio.load(path)
+
+    if sr != sample_rate:
+        waveform = torchaudio.transforms.Resample(sr, sample_rate)(waveform)
+    
+    mono_wf = Stereo2Mono()(waveform)
+
+    return mono_wf.cpu()
+
+def get_wf_label_from_config(config: list[dict], root=ROOT_DIR, label_mapping=LABEL_TO_INT):
+    wf_ls, label_ls = [], []
+
+    for dset in config:
+        audios_path = os.path.join(root, dset["audios_rel_path"])
+        labels_path = os.path.join(root, dset["labels_rel_path"])
+        labels_df = get_labels_from_file(
+            path=labels_path,
+            audio_ref_col=dset['audio_ref_col'],
+            label_col=dset['label_col'],
+            label_cats=dset['label_categories'],
+            label_mapping=dset['label_mapping'],
+        )
+
+        audio_filenames = [str(name) + dset['audio_format'] for name in labels_df[dset['audio_ref_col']]]
+        audio_path_ls = [os.path.join(audios_path, fn) for fn in audio_filenames]
+        audio_wf_ls = [path_to_waveform_tensor(path) for path in audio_path_ls]
+
+        wf_ls.extend(audio_wf_ls)
+        label_ls.extend([label_mapping[l] for l in labels_df[dset['label_col']]])
+    
+    return wf_ls, label_ls
+
+def split_waveform_segments(wf: torch.Tensor, target_len=TARGET_AUDIO_LENGTH, k: int=TARGET_AUDIO_LENGTH // 3) -> list[torch.Tensor]:
     assert len(wf.shape) == 1
 
     wf_len = wf.shape[0]
@@ -51,41 +94,43 @@ def split_waveform_segments(wf: torch.Tensor, target_len: int, k: int=TARGET_SAM
     
     return tensor_ls
 
-class Stereo2Mono(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.weights = torch.tensor([0.5, 0.5], requires_grad=False).view(2, 1)
+def segmentate_waveforms(wf_ls: list[torch.Tensor], label_ls: list[int]):
+    new_wf_ls, new_label_ls = [], []
 
-    def forward(self, waveform: torch.Tensor) -> torch.Tensor:
-        return torch.sum(waveform * self.weights, dim=0) * np.sqrt(2)
+    for wf, label in zip(wf_ls, label_ls):
+        wf_segments = split_waveform_segments(wf)
+
+        new_wf_ls.extend(wf_segments)
+        new_label_ls.extend([label] * len(wf_segments))
+    
+    return new_wf_ls, new_label_ls
+
 
 if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(device)
-    
-    audio_tensors = []
-    for path in get_audio_files_paths(get_data_subdir_paths(data_subdirs)):
-        print(path + '...', end='\t')
 
-        waveform, sr = torchaudio.load(path)
-        if sr != TARGET_SAMPLE_RATE:
-            waveform = torchaudio.transforms.Resample(sr, TARGET_SAMPLE_RATE)(waveform)
-        mono_wf = Stereo2Mono()(waveform)
-        wf_segments = split_waveform_segments(mono_wf, TARGET_AUDIO_LENGTH)
-        audio_tensors.extend(wf_segments)
+    data_config: list[dict] = json.load(open('data_config.json', 'r'))
+    print(data_config)
+    # exit()
 
-        print('Done!')
-    
-    padded_audio_tensors = torch.nn.utils.rnn.pad_sequence(audio_tensors, batch_first=True).to(device)
-    print(padded_audio_tensors.shape)
+    for dset_config in data_config:
+        dset_name = dset_config['dataset_name']
 
-    melspecs = torchaudio.transforms.MelSpectrogram(
-        sample_rate=TARGET_SAMPLE_RATE,
-        n_mels=512,
-        n_fft=8192, 
-        center=False,
-    ).to(device)(padded_audio_tensors)
-    print(melspecs.shape)
-    
-    torch.save(melspecs.cpu(), 'soundtracks_melspecs.pt')
-    print('Saved processed melspecs')
+        wf_ls, label_ls = get_wf_label_from_config(dset_config['subsets'])
+        wf_ls, label_ls = segmentate_waveforms(wf_ls, label_ls)
+        
+        wf_tensor = torch.nn.utils.rnn.pad_sequence(wf_ls, batch_first=True)
+        label_tensor = torch.tensor(label_ls)
+
+        n_mels = 512
+        melspec_tensor = torchaudio.transforms.MelSpectrogram(
+            sample_rate=TARGET_SAMPLE_RATE,
+            n_mels=n_mels,
+            n_fft=n_mels * 16, 
+            center=False,
+        ).to(device)(wf_tensor.to(device)).cpu()
+
+        print(melspec_tensor.shape, label_tensor.shape)
+        print(torch.bincount(label_tensor))
+
+        pth.save_processed_data(melspec_tensor, label_tensor, dset_name)

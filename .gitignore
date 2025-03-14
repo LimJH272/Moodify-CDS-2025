@@ -4,6 +4,7 @@ __pycache__
 
 # data files
 data
+processed
 
 # unwanted file types
 *.pdf
