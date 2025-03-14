@@ -15,17 +15,22 @@ SUTD 50.038 Computational Data Science Project (2025)
 
 ## Related Research
 
-## Datasets
+## Required Datasets
 
-## Data Preparation
+### SoundTracks
+1. Download the dataset [here](https://osf.io/p6vkg/)
+2. Extract the ZIP file
+3. Rename the folder as `SoundTracks`
+4. Extract the ZIP files named `Set1`, `set2` and `1min`
+5. Move/copy the folder to the `data` directory
 
 ## Installation & Setup
 - Python (version 3.12 or lower)
 - PyTorch (torch, torchaudio)
 
-### 1. Pull this repository onto your local machine
+### 1. Clone this repository onto your local machine
 ```cmd
-git pull <GitHub URL>
+git clone https://github.com/LimJH272/Moodify-CDS-2025.git
 ```
 
 ### 2. Create virtual environment (conda recommended)
