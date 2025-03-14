@@ -110,8 +110,6 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     data_config: list[dict] = json.load(open('data_config.json', 'r'))
-    print(data_config)
-    # exit()
 
     for dset_config in data_config:
         dset_name = dset_config['dataset_name']
@@ -130,6 +128,7 @@ if __name__ == '__main__':
             center=False,
         ).to(device)(wf_tensor.to(device)).cpu()
 
+        print(dset_name)
         print(melspec_tensor.shape, label_tensor.shape)
         print(torch.bincount(label_tensor))
 

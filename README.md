@@ -26,7 +26,7 @@ SUTD 50.038 Computational Data Science Project (2025)
 
 ## Installation & Setup
 - Python (version 3.12 or lower)
-- PyTorch (torch, torchaudio)
+- PyTorch (torch, torchaudio, torchvision)
 
 ### 1. Clone this repository onto your local machine
 ```cmd
