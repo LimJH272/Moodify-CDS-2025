@@ -3,7 +3,7 @@ __pycache__
 .vscode
 
 # data files
-# data
+data
 
 # unwanted file types
 *.pdf
