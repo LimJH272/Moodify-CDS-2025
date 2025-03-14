@@ -38,17 +38,19 @@ class MelSpecCNN(torch.nn.Module):
     def __init__(self):
         super().__init__()
 
-        # input shape = (1, 512, 160)
-        self.conv1 = BN_Conv2d_ReLU(1, 32, (256,80), dropout=0.1)       # output shape = (32, 257, 81)
-        self.conv2 = BN_Conv2d_ReLU(32, 64, (128,40), dropout=0.1)      # output shape = (64, 130, 42)
-        self.maxpool1 = torch.nn.MaxPool2d(kernel_size=2, stride=2)     # output shape = (64, 65, 21)
+                                                                            # input shape = (1, 512, 160)
+        self.conv1 = BN_Conv2d_ReLU(1, 4, (5,3), dropout=0.1)               # output shape = (4, 508, 158)
+        self.conv2 = BN_Conv2d_ReLU(4, 16, (5,3), dropout=0.1)              # output shape = (16, 504, 156)
+        self.maxpool1 = torch.nn.MaxPool2d(kernel_size=(3,2), stride=(3,2)) # output shape = (16, 168, 78)
 
-        self.conv3 = BN_Conv2d_ReLU(64, 16, (1,1), dropout=0.1)         # output shape = (16, 65, 21)
-        self.flatten = torch.nn.Flatten()                               # output shape = (21840,)
+        self.conv3 = BN_Conv2d_ReLU(16, 8, (5,3), dropout=0.1)              # output shape = (8, 164, 76)
+        self.conv4 = BN_Conv2d_ReLU(8, 4, (5,3), dropout=0.1)               # output shape = (4, 160, 74)
+        self.maxpool2 = torch.nn.MaxPool2d(kernel_size=2, stride=2)         # output shape = (4, 80, 37)
+        self.flatten = torch.nn.Flatten()                                   # output shape = (11840,)
 
-        self.fc_1 = BN_Linear_ReLU(21840, 2000, dropout=0.1)            # output shape = (2000,)
-        self.fc_2 = BN_Linear_ReLU(2000, 100, dropout=0.1)              # output shape = (100,)
-        self.fc_3 = BN_Linear_ReLU(100, 4, dropout=0.1)                 # output shape = (4,)
+        self.fc_1 = BN_Linear_ReLU(11840, 1000, dropout=0.1)                # output shape = (1000,)
+        self.fc_2 = BN_Linear_ReLU(1000, 100, dropout=0.1)                  # output shape = (100,)
+        self.fc_3 = BN_Linear_ReLU(100, 4, dropout=0.1)                     # output shape = (4,)
 
     def forward(self, x: torch.Tensor):
         x = x.unsqueeze(1)      # input is a 3D tensor of shape (batch_size, height, width), but Conv2d expects shape (batch_size, num_channels, height, width)
@@ -58,6 +60,8 @@ class MelSpecCNN(torch.nn.Module):
         x = self.maxpool1(x)
 
         x = self.conv3(x)
+        x = self.conv4(x)
+        x = self.maxpool2(x)
         x = self.flatten(x)
 
         x = self.fc_1(x)
