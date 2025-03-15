@@ -79,17 +79,17 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     dataset = datasets.SoundTracksDataset()
+    dataset = dataset.NHW_to_NCHW()
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True)
 
-    # model = models.MelSpecCNN().to(device)
-    model = models.KaggleCNN().to(device)
+    model = models.NilsHMeierCNN().to(device)
     print(model)
 
     trainer = MultiClassTrainer(device)
     preds, labels = trainer.predict(model, dataloader)
     print(trainer.evaluate_accuracy(preds, labels))
 
-    trainer.train(model, dataloader, lr=0.01, max_epochs=20, lambda_val=0.001)
+    trainer.train(model, dataloader, lr=0.001, max_epochs=20, lambda_val=0.001)
     preds, labels = trainer.predict(model, dataloader)
     print(trainer.evaluate_accuracy(preds, labels))
 
