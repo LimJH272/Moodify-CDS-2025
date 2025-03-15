@@ -9,12 +9,16 @@ def save_processed_data(melspecs: torch.Tensor, labels: torch.Tensor, dset_name:
     os.makedirs(melspec_dir, exist_ok=True)
     os.makedirs(label_dir, exist_ok=True)
 
-    torch.save(melspecs, os.path.join(melspec_dir, dset_name + '.pt'))
-    torch.save(labels, os.path.join(label_dir, dset_name + '.pt'))
+    fn = dset_name + '.pt'
+    torch.save(melspecs, os.path.join(melspec_dir, fn))
+    torch.save(labels, os.path.join(label_dir, fn))
+
+    print(f'{dset_name} data saved successfully!')
 
 def load_data(dset_name: str):
-    melspecs = torch.load(os.path.join(melspec_dir, dset_name + '.pt'))
-    labels = torch.load(os.path.join(label_dir, dset_name + '.pt'))
+    fn = dset_name + '.pt'
+    melspecs = torch.load(os.path.join(melspec_dir, fn))
+    labels = torch.load(os.path.join(label_dir, fn))
 
     return melspecs, labels
 

@@ -4,6 +4,7 @@ import pandas as pd
 import json
 
 import torch, torchaudio
+import librosa
 
 import python_helpers as pyh
 import pytorch_helpers as pth
@@ -105,6 +106,15 @@ def segmentate_waveforms(wf_ls: list[torch.Tensor], label_ls: list[int]):
     
     return new_wf_ls, new_label_ls
 
+class NormaliseMelSpec(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        self.normalise = lambda x: torch.from_numpy(librosa.power_to_db(x, ref=np.max))
+
+    def forward(self, x):
+        return self.normalise(x)
+
 
 if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -120,13 +130,14 @@ if __name__ == '__main__':
         wf_tensor = torch.nn.utils.rnn.pad_sequence(wf_ls, batch_first=True)
         label_tensor = torch.tensor(label_ls)
 
-        n_mels = 512
+        n_mels = 256
         melspec_tensor = torchaudio.transforms.MelSpectrogram(
             sample_rate=TARGET_SAMPLE_RATE,
             n_mels=n_mels,
             n_fft=n_mels * 16, 
             center=False,
         ).to(device)(wf_tensor.to(device)).cpu()
+        melspec_tensor = NormaliseMelSpec()(melspec_tensor)
 
         print(dset_name)
         print(melspec_tensor.shape, label_tensor.shape)
