@@ -135,7 +135,7 @@ if __name__ == '__main__':
             sample_rate=TARGET_SAMPLE_RATE,
             n_mels=n_mels,
             n_fft=n_mels * 16, 
-            center=False,
+            center=True,
         ).to(device)(wf_tensor.to(device)).cpu()
         melspec_tensor = NormaliseMelSpec()(melspec_tensor)
 
