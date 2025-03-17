@@ -1,10 +1,8 @@
 import torch
 import pytorch_helpers as pth
-from abc import abstractmethod, ABC
 import sklearn.model_selection as skl
 
-class MelSpecDataset(torch.utils.data.Dataset, ABC):
-    @abstractmethod
+class MelSpecDataset(torch.utils.data.Dataset):
     def __init__(self, melspecs: torch.Tensor, labels: torch.Tensor):
         super(MelSpecDataset, self).__init__()
 
@@ -39,6 +37,16 @@ class MelSpecDataset(torch.utils.data.Dataset, ABC):
         train_melspecs, test_melspecs, train_labels, test_labels = skl.train_test_split(self.melspecs, self.labels, test_size=split_size, shuffle=True)
 
         return MelSpecDataset(train_melspecs, train_labels), MelSpecDataset(test_melspecs, test_labels)
+
+    def to(self, device: torch.device):
+        self.melspecs = self.melspecs.to(device)
+        self.labels = self.labels.to(device)
+
+        return self
+    
+    @property
+    def device(self):
+        return torch.device('cuda') if self.melspecs.is_cuda else torch.device('cpu')
 
 
 class AllDataset(MelSpecDataset):
