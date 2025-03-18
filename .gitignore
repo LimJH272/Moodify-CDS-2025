@@ -6,6 +6,9 @@ __pycache__
 data
 processed
 
+# products of training
+runs
+
 # unwanted file types
 *.pdf
 *.pt
