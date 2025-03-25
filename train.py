@@ -20,7 +20,7 @@ class ModelTrainer:
         self.loss = torch.nn.CrossEntropyLoss().to(device)
         self.accuracy = torchmetrics.Accuracy(task=task, num_classes=num_classes).to(device)
 
-    def train(self, model: torch.nn.Module, train_dset: datasets.MelSpecDataset, val_dset: datasets.MelSpecDataset, batch_size=8, max_epochs=5, lr=1e-3, lambda_val=0.0, l1_ratio=0.0, take_best=False):
+    def train(self, model: torch.nn.Module, train_dset: datasets.CustomDataset, val_dset: datasets.CustomDataset, batch_size=8, max_epochs=5, lr=1e-3, lambda_val=0.0, l1_ratio=0.0, take_best=False):
         orig_device = model.device
 
         train_dset = train_dset.to(self.device)
@@ -61,10 +61,10 @@ class ModelTrainer:
             model.train()
 
             num_batches = len(train_loader)
-            for melspecs, labels in train_loader:
+            for features, labels in train_loader:
 
                 optimizer.zero_grad()
-                preds = model(melspecs)
+                preds = model(features)
                 loss = self.loss(preds, labels) + lambda_val * self.regularisation(model, l1_ratio) / num_batches 
 
                 loss.backward()
@@ -110,11 +110,11 @@ class ModelTrainer:
 
         self.save_histories_plot(os.path.join(this_run_dir, 'histories.png'))
     
-    def predict(self, model: torch.nn.Module, dset: datasets.MelSpecDataset):
+    def predict(self, model: torch.nn.Module, dset: datasets.CustomDataset):
         model.eval()
 
         with torch.no_grad():
-            preds = model(dset.melspecs)
+            preds = model(dset.features)
             labels = dset.labels
 
         return preds, labels
@@ -128,7 +128,7 @@ class ModelTrainer:
     def confusion_matrix(self, preds: torch.Tensor, labels: torch.Tensor):
         return torchmetrics.ConfusionMatrix(task=self.task, num_classes=self.num_classes).to(torch.device('cuda' if preds.is_cuda else ('cpu')))(preds, labels)
     
-    def evaluate_performance(self, model: torch.nn.Module, dset: datasets.MelSpecDataset, lambda_val=0.0, l1_ratio=0.0):
+    def evaluate_performance(self, model: torch.nn.Module, dset: datasets.CustomDataset, lambda_val=0.0, l1_ratio=0.0):
         preds, labels = self.predict(model, dset)
         loss = self.evaluate_loss(model, preds, labels, lambda_val, l1_ratio)
         accuracy = self.evaluate_accuracy(preds, labels)
@@ -206,18 +206,14 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     dataset = datasets.SoundTracksDataset()
-    dataset = dataset.NHW_to_NCHW()
 
     num_split = len(dataset) // 10
     train_dset, test_dset = dataset.train_test_split(num_split)
     train_dset, val_dset = train_dset.train_test_split(num_split)
-    # train_dset = datasets.SoundTracksDataset().NHW_to_NCHW()
-    # val_dset = datasets.SoundTracksDataset().NHW_to_NCHW()
-    # test_dset = datasets.SoundTracksDataset().NHW_to_NCHW()
     print(len(train_dset), len(val_dset), len(test_dset))
     # exit()
 
-    model = models.NilsHMeierCNN()
+    model = models.NilsHMeierCNN('melspecs')
     # print(model)
 
     trainer = ModelTrainer(task='multiclass', num_classes=4, device=device)
