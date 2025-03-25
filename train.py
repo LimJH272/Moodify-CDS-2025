@@ -76,11 +76,11 @@ class ModelTrainer:
             if take_best:
                 if (
                     epoch_val_acc > self.accuracy_history['val'][best_epoch] 
-                    and epoch_val_acc > (epoch_train_acc - 0.01)
+                    # and epoch_val_acc > (epoch_train_acc - 0.01)
                 ) or (
-                    epoch_val_acc == self.accuracy_history['val'][best_epoch] \
+                    epoch_val_acc == self.accuracy_history['val'][best_epoch]
                     and epoch_train_acc >= self.accuracy_history['train'][best_epoch]
-                    and epoch_val_acc > (epoch_train_acc - 0.01)
+                    # and epoch_val_acc > (epoch_train_acc - 0.01)
                 ):
                     self.save_model(model, best_model_path)
                     best_epoch = i+1
@@ -91,7 +91,8 @@ class ModelTrainer:
             self.accuracy_history['val'].append(epoch_val_acc)
 
             print(f'Epoch {i+1}    Train Loss={epoch_train_loss:.4f}    Train Acc={epoch_train_acc :.4f}    Val Loss={epoch_val_loss:.4f}    Val Acc={epoch_val_acc :.4f}')
-
+        
+        print("Saving final model...")
         self.save_model(model, final_model_path)
         
         if take_best:
@@ -225,9 +226,9 @@ if __name__ == '__main__':
 
     bs = 16
     epochs = 100
-    lam = 5.0
-    l1_ratio = 0.1
-    lr = 0.0001
+    lam = 2.0
+    l1_ratio = 0.02
+    lr = 0.00005
 
     test_loss, test_acc, test_cm = trainer.evaluate_performance(model, test_dset, lambda_val=lam, l1_ratio=l1_ratio)
     print(f'Test Loss={test_loss:.4f}    Test Acc={test_acc:.4f}')
@@ -235,7 +236,7 @@ if __name__ == '__main__':
 
     trainer.train(
         model, train_dset, val_dset, batch_size=bs, 
-        lr=lr, max_epochs=epochs, lambda_val=lam, l1_ratio=l1_ratio, take_best=True
+        lr=lr, max_epochs=epochs, lambda_val=lam, l1_ratio=l1_ratio, take_best=True,
     )
 
     test_loss, test_acc, test_cm = trainer.evaluate_performance(model, test_dset, lambda_val=lam, l1_ratio=l1_ratio)
