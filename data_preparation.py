@@ -77,29 +77,31 @@ def get_wf_label_from_config(config: list[dict], root=ROOT_DIR, label_mapping=LA
     
     return wf_ls, label_ls
 
-def split_waveform_segments(wf: torch.Tensor, target_len=TARGET_AUDIO_LENGTH, k: int=TARGET_AUDIO_LENGTH // 3) -> list[torch.Tensor]:
+def split_waveform_segments(wf: torch.Tensor, target_len=TARGET_AUDIO_LENGTH, min_length: int=TARGET_SAMPLE_RATE * 10, train: bool=False) -> list[torch.Tensor]:
     assert len(wf.shape) == 1
 
     wf_len = wf.shape[0]
 
     if wf_len < target_len:
-        return [wf.detach().clone()]
+        return [wf.detach().clone()] if wf_len >= min_length else []
     else:
+        hop_length = target_len // 2 if train else target_len
         tensor_ls = []
-        for i in range(int(np.ceil(round(wf_len / target_len, 7)))):
-            if wf_len - i * target_len > target_len:
-                tensor_ls.append(wf[i*target_len:(i+1)*target_len])
+
+        for i in range(0, wf_len, hop_length):
+            if wf_len - i > target_len:
+                tensor_ls.append(wf[i:i+target_len])
             else:
-                if wf_len - i * target_len > k:
-                    tensor_ls.append(wf[-target_len:])
+                if wf_len - i >= min_length:
+                    tensor_ls.append(wf[(-target_len if train else i):])
     
     return tensor_ls
 
-def segmentate_waveforms(wf_ls: list[torch.Tensor], label_ls: list[int]):
+def segmentate_waveforms(wf_ls: list[torch.Tensor], label_ls: list[int], train: bool=False):
     new_wf_ls, new_label_ls = [], []
 
     for wf, label in zip(wf_ls, label_ls):
-        wf_segments = split_waveform_segments(wf)
+        wf_segments = split_waveform_segments(wf, train=train)
 
         new_wf_ls.extend(wf_segments)
         new_label_ls.extend([label] * len(wf_segments))
@@ -125,7 +127,7 @@ if __name__ == '__main__':
         dset_name = dset_config['dataset_name']
 
         wf_ls, label_ls = get_wf_label_from_config(dset_config['subsets'])
-        wf_ls, label_ls = segmentate_waveforms(wf_ls, label_ls)
+        wf_ls, label_ls = segmentate_waveforms(wf_ls, label_ls, train=True)
         
         wf_tensor = torch.nn.utils.rnn.pad_sequence(wf_ls, batch_first=True)
         label_tensor = torch.tensor(label_ls)
@@ -167,7 +169,6 @@ if __name__ == '__main__':
         print("Label Distr.:", torch.bincount(label_tensor))
         print('-'*sep_len)
 
-        # TODO: modify this to save/load datasets with multiple features
         pth.save_processed_data({
             'waveforms': wf_tensor,
             'spectrograms': spec_tensor,

@@ -2,6 +2,8 @@ import os, datetime
 
 import matplotlib.pyplot as plt
 
+from sklearn.metrics import classification_report
+
 import torch.utils.data.dataloader
 import torch, torchaudio, torchvision
 import torchmetrics
@@ -47,8 +49,8 @@ class ModelTrainer:
             self.save_model(model, best_model_path)
         final_model_path = os.path.join(this_run_dir, 'final.pt')
 
-        init_train_loss, init_train_acc, _ = self.evaluate_performance(model, train_dset, lambda_val, l1_ratio)
-        init_val_loss, init_val_acc, _ = self.evaluate_performance(model, val_dset, lambda_val, l1_ratio)
+        init_train_loss, init_train_acc, _ = self.evaluate_performance(model, train_dset, lambda_val, l1_ratio, show_report=False)
+        init_val_loss, init_val_acc, _ = self.evaluate_performance(model, val_dset, lambda_val, l1_ratio, show_report=False)
 
         print(f'Epoch 0    Train Loss={init_train_loss:.4f}    Train Acc={init_train_acc :.4f}    Val Loss={init_val_loss:.4f}    Val Acc={init_val_acc :.4f}')
 
@@ -70,8 +72,8 @@ class ModelTrainer:
                 loss.backward()
                 optimizer.step()
             
-            epoch_train_loss, epoch_train_acc, _ = self.evaluate_performance(model, train_dset, lambda_val, l1_ratio)
-            epoch_val_loss, epoch_val_acc, _ = self.evaluate_performance(model, val_dset, lambda_val, l1_ratio)
+            epoch_train_loss, epoch_train_acc, _ = self.evaluate_performance(model, train_dset, lambda_val, l1_ratio, show_report=False)
+            epoch_val_loss, epoch_val_acc, _ = self.evaluate_performance(model, val_dset, lambda_val, l1_ratio, show_report=False)
             
             if take_best:
                 if (
@@ -128,11 +130,15 @@ class ModelTrainer:
     def confusion_matrix(self, preds: torch.Tensor, labels: torch.Tensor):
         return torchmetrics.ConfusionMatrix(task=self.task, num_classes=self.num_classes).to(torch.device('cuda' if preds.is_cuda else ('cpu')))(preds, labels)
     
-    def evaluate_performance(self, model: torch.nn.Module, dset: datasets.CustomDataset, lambda_val=0.0, l1_ratio=0.0):
+    def evaluate_performance(self, model: torch.nn.Module, dset: datasets.CustomDataset, lambda_val=0.0, l1_ratio=0.0, show_report: bool=True):
         preds, labels = self.predict(model, dset)
         loss = self.evaluate_loss(model, preds, labels, lambda_val, l1_ratio)
         accuracy = self.evaluate_accuracy(preds, labels)
         cm = self.confusion_matrix(preds, labels)
+
+        if show_report:
+            pred_labels = torch.argmax(preds, 1)
+            print(classification_report(labels, pred_labels))
         
         return loss, accuracy, cm
     
@@ -223,8 +229,8 @@ if __name__ == '__main__':
     bs = 16
     epochs = 100
     lam = 2.0
-    l1_ratio = 0.02
-    lr = 0.00005
+    l1_ratio = 0.1
+    lr = 0.0001
 
     test_loss, test_acc, test_cm = trainer.evaluate_performance(model, test_dset, lambda_val=lam, l1_ratio=l1_ratio)
     print(f'Test Loss={test_loss:.4f}    Test Acc={test_acc:.4f}')
