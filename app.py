@@ -18,6 +18,9 @@ from data_preparation import (
 )
 
 # --- Model Loading ---
+# python train.py
+# cp $(ls -td runs/*/ | head -n 1)/best.pt mood_model.pth
+# strea
 
 
 @st.cache_resource  # Cache the model loading
