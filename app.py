@@ -103,15 +103,25 @@ def get_mood_label(class_idx):
     return INT_TO_LABEL.get(class_idx, "Unknown")  # Use .get for safety
 
 
+# Initialize session state for tracking resets
+if 'reset_counter' not in st.session_state:
+    st.session_state.reset_counter = 0
+
+# Function to trigger reset
+
+
+def clear_uploaded_files():
+    # Increment counter to force rerun
+    st.session_state.reset_counter += 1
+    # Clear any results (optional)
+    if 'results' in st.session_state:
+        st.session_state.results = []
+    # This forces the file uploader to reset
+    st.session_state.file_uploader = []
+
+
 # --- Streamlit App ---
 st.title("Moodify Music Classifier")
-
-# File upload section
-uploaded_files = st.file_uploader(
-    "Upload audio files",
-    type=["wav", "mp3"],
-    accept_multiple_files=True  # Enable multiple files
-)
 
 # Load model only once
 try:
@@ -122,7 +132,21 @@ except Exception as e:
     st.stop()  # Stop execution if model fails to load
 
 
-run_button = st.button("Analyze Mood")
+# File upload section
+uploaded_files = st.file_uploader(
+    "Upload audio files",
+    type=["wav", "mp3"],
+    accept_multiple_files=True,
+    # Key changes on reset
+    key=f"file_uploader_{st.session_state.reset_counter}"
+)
+
+
+col1, col2 = st.columns([5, 1])
+with col1:
+    run_button = st.button("Analyze Mood")
+with col2:
+    clear_button = st.button("Clear Files", on_click=clear_uploaded_files)
 
 
 if run_button and uploaded_files:  # Check if any files are uploaded
