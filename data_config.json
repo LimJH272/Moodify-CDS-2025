@@ -4,8 +4,8 @@
         "subsets": [
             {
                 "subset_name": "SoundTracks Set1",
-                "audios_rel_path": "data\\SoundTracks\\Set1\\Set1",
-                "labels_rel_path": "data\\SoundTracks\\set1_tracklist.csv",
+                "audios_rel_path": "data/SoundTracks/Set1",
+                "labels_rel_path": "data/SoundTracks/set1_tracklist.csv",
                 "audio_ref_col": "Nro",
                 "label_col": "Emotion",
                 "audio_format": ".mp3",
@@ -24,8 +24,8 @@
             },
             {
                 "subset_name": "SoundTracks Set2",
-                "audios_rel_path": "data\\SoundTracks\\Set2\\set2",
-                "labels_rel_path": "data\\SoundTracks\\set2_tracklist.csv",
+                "audios_rel_path": "data/SoundTracks/set2",
+                "labels_rel_path": "data/SoundTracks/set2_tracklist.csv",
                 "audio_ref_col": "Nro",
                 "label_col": "Emotion",
                 "audio_format": ".mp3",
