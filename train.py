@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 
 from sklearn.metrics import classification_report
 
-import torch.utils.data.dataloader
 import torch, torchaudio, torchvision
 import torchmetrics
 
@@ -13,16 +12,16 @@ import pytorch_helpers as pth
 import models
 import datasets
 
-class ModelTrainer:
-    def __init__(self, task: str, num_classes: int, device: torch.device):
-        self.task = task
+class MultiClassTrainer:
+    def __init__(self, num_classes: int, device: torch.device):
+        self.task = 'multiclass'
         self.num_classes = num_classes
         self.device = device
 
         self.loss = torch.nn.CrossEntropyLoss().to(device)
-        self.accuracy = torchmetrics.Accuracy(task=task, num_classes=num_classes).to(device)
+        self.accuracy = torchmetrics.Accuracy(task=self.task, num_classes=num_classes).to(device)
 
-    def train(self, model: torch.nn.Module, train_dset: datasets.CustomDataset, val_dset: datasets.CustomDataset, batch_size=8, max_epochs=5, lr=1e-3, lambda_val=0.0, l1_ratio=0.0, take_best=False):
+    def train(self, model: models.SingleFeatureModel, train_dset: datasets.CustomDataset, val_dset: datasets.CustomDataset, batch_size=8, max_epochs=5, lr=1e-3, lambda_val=0.0, l1_ratio=0.0, take_best=False):
         orig_device = model.device
 
         train_dset = train_dset.to(self.device)
@@ -40,14 +39,14 @@ class ModelTrainer:
 
         print("Training start")
 
-        this_run_dir = os.path.join(pyh.get_project_root_dir(), 'runs', datetime.datetime.now().strftime("%Y%m%d-%H%M%S-%f"))
+        this_run_dir = os.path.join(pyh.get_project_root_dir(), 'runs', model.__class__.__name__ + datetime.datetime.now().strftime("_%Y%m%d-%H%M%S-%f"))
         os.makedirs(this_run_dir, exist_ok=True)
 
         if take_best:
             best_epoch = 0
-            best_model_path = os.path.join(this_run_dir, 'best.pt')
+            best_model_path = os.path.join(this_run_dir, 'best.pth')
             self.save_model(model, best_model_path)
-        final_model_path = os.path.join(this_run_dir, 'final.pt')
+        final_model_path = os.path.join(this_run_dir, 'final.pth')
 
         init_train_loss, init_train_acc, _ = self.evaluate_performance(model, train_dset, lambda_val, l1_ratio, show_report=False)
         init_val_loss, init_val_acc, _ = self.evaluate_performance(model, val_dset, lambda_val, l1_ratio, show_report=False)
@@ -138,7 +137,7 @@ class ModelTrainer:
 
         if show_report:
             pred_labels = torch.argmax(preds, 1)
-            print(classification_report(labels, pred_labels))
+            print(classification_report(labels.cpu(), pred_labels.cpu(), zero_division=0))
         
         return loss, accuracy, cm
     
@@ -200,7 +199,7 @@ class ModelTrainer:
     
     def save_model(self, model: torch.nn.Module, dst_path: str):
         _, ext = os.path.splitext(dst_path)
-        assert ext == '.pt', 'Please save your model as a .pt file'
+        assert ext == '.pth', 'Please save your model as a .pth file'
         torch.save(model.state_dict(), dst_path)
 
     def load_model(self, model: torch.nn.Module, src_path: str):
@@ -211,7 +210,7 @@ if __name__ == '__main__':
     torch.manual_seed(0)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    dataset = datasets.SoundTracksDataset()
+    dataset = datasets.SoundTracksDataset(train=True)
 
     num_split = len(dataset) // 10
     train_dset, test_dset = dataset.train_test_split(num_split)
@@ -219,10 +218,10 @@ if __name__ == '__main__':
     print(len(train_dset), len(val_dset), len(test_dset))
     # exit()
 
-    model = models.NilsHMeierCNN('melspecs')
+    model = models.NilsHMeierCNN('melspecs', out_features=4)
     # print(model)
 
-    trainer = ModelTrainer(task='multiclass', num_classes=4, device=device)
+    trainer = MultiClassTrainer(num_classes=4, device=device)
 
     # print(model.device, trainer.device, train_dset.device, val_dset.device, test_dset.device)
 

@@ -116,62 +116,65 @@ class NormaliseMelSpec(torch.nn.Module):
 
     def forward(self, x):
         return self.normalise(x)
+    
+def create_dataset(dset_config, train: bool):
+    dset_name = dset_config['dataset_name']
+
+    wf_ls, label_ls = get_wf_label_from_config(dset_config['subsets'])
+    wf_ls, label_ls = segmentate_waveforms(wf_ls, label_ls, train=train)
+    
+    wf_tensor = torch.nn.utils.rnn.pad_sequence(wf_ls, batch_first=True)
+    label_tensor = torch.tensor(label_ls)
+
+    n_mels = 128
+    n_fft = 4096
+    melspec_tensor = torchaudio.transforms.MelSpectrogram(
+        sample_rate=TARGET_SAMPLE_RATE,
+        n_mels=n_mels,
+        n_fft=n_fft, 
+        center=True,
+    )(wf_tensor)
+    melspec_tensor = NormaliseMelSpec()(melspec_tensor)
+
+    mfcc_tensor = torchaudio.transforms.MFCC(
+        sample_rate=TARGET_SAMPLE_RATE,
+        n_mfcc=20,
+        melkwargs={
+            'n_mels': n_mels,
+            'n_fft': n_fft, 
+            'center': True,
+        },
+    )(wf_tensor)
+
+    spec_tensor = torchaudio.transforms.Spectrogram(
+        n_fft=n_fft, 
+        center=True,
+    )(wf_tensor)
+
+    sep_len = 40
+    print('='*sep_len)
+    print(dset_name)
+    print('-'*sep_len)
+    print("Waveform:", wf_tensor.shape)
+    print("Melspec:", melspec_tensor.shape)
+    print("Spectrogram:", spec_tensor.shape)
+    print("MFCC:", mfcc_tensor.shape)
+    print("Label:", label_tensor.shape)
+    print("Label Distr.:", torch.bincount(label_tensor))
+    print('-'*sep_len)
+
+    pth.save_processed_data({
+        'waveforms': wf_tensor,
+        'spectrograms': spec_tensor,
+        'melspecs': melspec_tensor,
+        'mfcc': mfcc_tensor,
+    }, label_tensor, dset_name, train=train)
 
 
 if __name__ == '__main__':
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     data_config: list[dict] = json.load(open('data_config.json', 'r'))
 
     for dset_config in data_config:
-        dset_name = dset_config['dataset_name']
-
-        wf_ls, label_ls = get_wf_label_from_config(dset_config['subsets'])
-        wf_ls, label_ls = segmentate_waveforms(wf_ls, label_ls, train=True)
-        
-        wf_tensor = torch.nn.utils.rnn.pad_sequence(wf_ls, batch_first=True)
-        label_tensor = torch.tensor(label_ls)
-
-        n_mels = 128
-        n_fft = 4096
-        melspec_tensor = torchaudio.transforms.MelSpectrogram(
-            sample_rate=TARGET_SAMPLE_RATE,
-            n_mels=n_mels,
-            n_fft=n_fft, 
-            center=True,
-        ).to(device)(wf_tensor.to(device)).cpu()
-        melspec_tensor = NormaliseMelSpec()(melspec_tensor)
-
-        mfcc_tensor = torchaudio.transforms.MFCC(
-            sample_rate=TARGET_SAMPLE_RATE,
-            n_mfcc=20,
-            melkwargs={
-                'n_mels': n_mels,
-                'n_fft': n_fft, 
-                'center': True,
-            },
-        ).to(device)(wf_tensor.to(device)).cpu()
-
-        spec_tensor = torchaudio.transforms.Spectrogram(
-            n_fft=n_fft, 
-            center=True,
-        ).to(device)(wf_tensor.to(device)).cpu()
-
-        sep_len = 40
-        print('='*sep_len)
-        print(dset_name)
-        print('-'*sep_len)
-        print("Waveform:", wf_tensor.shape)
-        print("Melspec:", melspec_tensor.shape)
-        print("Spectrogram:", spec_tensor.shape)
-        print("MFCC:", mfcc_tensor.shape)
-        print("Label:", label_tensor.shape)
-        print("Label Distr.:", torch.bincount(label_tensor))
-        print('-'*sep_len)
-
-        pth.save_processed_data({
-            'waveforms': wf_tensor,
-            'spectrograms': spec_tensor,
-            'melspecs': melspec_tensor,
-            'mfcc': mfcc_tensor,
-        }, label_tensor, dset_name)
+        create_dataset(dset_config, train=True)
