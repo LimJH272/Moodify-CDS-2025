@@ -100,11 +100,11 @@ class CustomDataset(torch.utils.data.Dataset):
 #         super(SoundTracksDataset, self).__init__(melspecs, labels)
 
 class AllDataset(CustomDataset):
-    def __init__(self):
-        features, labels = pth.load_all_data()
+    def __init__(self, train: bool):
+        features, labels = pth.load_all_data(train)
         super(AllDataset, self).__init__(features, labels)
 
 class SoundTracksDataset(CustomDataset):
-    def __init__(self):
-        features, labels = pth.load_data("SoundTracks")
+    def __init__(self, train: bool):
+        features, labels = pth.load_data("SoundTracks", train)
         super(SoundTracksDataset, self).__init__(features, labels)
