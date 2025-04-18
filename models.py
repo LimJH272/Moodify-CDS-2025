@@ -1,12 +1,19 @@
 import torch
 from abc import ABC, abstractmethod
+import torch.nn as nn
+
 
 class MyModel(torch.nn.Module, ABC):
     valid_features = ['waveforms', 'spectrograms', 'melspecs', 'mfcc']
 
     @abstractmethod
-    def __init__(self, *args, **kwargs):
-        super(MyModel, self).__init__(*args, **kwargs)
+    def __init__(self, feature: str):
+        super(MyModel, self).__init__()
+        valid_features = ['waveforms', 'spectrograms', 'melspecs', 'mfcc']
+        if feature not in valid_features:
+            raise ValueError(
+                f'Feature name {feature} is not one of {valid_features}')
+        self.feature = feature
 
     @abstractmethod
     def forward(self, features: dict[str, torch.Tensor]):
@@ -49,22 +56,23 @@ class NilsHMeierCNN(SingleFeatureModel):
 
         self.out_features = out_features
 
-        self.pipeline = torch.nn.Sequential(                
-            torch.nn.Conv2d(in_channels=1, out_channels=16, kernel_size=3, padding='same'),  
-            torch.nn.ReLU(),    
+        self.pipeline = torch.nn.Sequential(
+            torch.nn.Conv2d(in_channels=1, out_channels=16,
+                            kernel_size=3, padding='same'),
+            torch.nn.ReLU(),
             torch.nn.MaxPool2d(kernel_size=2, stride=2),
-            torch.nn.Dropout2d(p=0.3), 
-            
+
+            # torch.nn.Dropout2d(p=0.3), 
             torch.nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, padding='same'),  
             torch.nn.ReLU(),         
             torch.nn.MaxPool2d(kernel_size=2, stride=2),      
 
-            torch.nn.Flatten(),                             
-            torch.nn.Dropout1d(p=0.3),                  
+            torch.nn.Flatten(),
+            torch.nn.Dropout1d(p=0.3),
 
             torch.nn.LazyLinear(out_features=64),   
             torch.nn.ReLU(),                           
-            torch.nn.Linear(in_features=64, out_features=out_features),                         
+            torch.nn.Linear(in_features=64, out_features=4),                         
         )   
         
 
@@ -73,6 +81,99 @@ class NilsHMeierCNN(SingleFeatureModel):
         x = self.pipeline(x)
 
         return x    # softmax will be applied in loss function
+
+
+class VGGStyleCNN(MyModel):
+    """VGG-inspired CNN with batch normalization for 128x323 melspectrograms"""
+
+    def __init__(self, feature: str):
+        super().__init__(feature)
+
+        self.cnn = torch.nn.Sequential(
+            # Block 1
+            torch.nn.Conv2d(1, 64, 3, padding=1),
+            torch.nn.BatchNorm2d(64),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(64, 64, 3, padding=1),
+            torch.nn.BatchNorm2d(64),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool2d(2, 2),
+
+            # Block 2
+            torch.nn.Conv2d(64, 128, 3, padding=1),
+            torch.nn.BatchNorm2d(128),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(128, 128, 3, padding=1),
+            torch.nn.BatchNorm2d(128),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool2d(2, 2),
+
+            # Block 3
+            torch.nn.Conv2d(128, 256, 3, padding=1),
+            torch.nn.BatchNorm2d(256),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(256, 256, 3, padding=1),
+            torch.nn.BatchNorm2d(256),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool2d(2, 2),
+        )
+
+        self.classifier = torch.nn.Sequential(
+            torch.nn.Flatten(),
+            torch.nn.Linear(256 * 16 * 40, 512),  # Adjusted for 128x323 input
+            torch.nn.ReLU(),
+            torch.nn.Dropout(0.5),
+            torch.nn.Linear(512, 4)
+        )
+
+    def forward(self, features: dict[str, torch.Tensor]):
+        x = features[self.feature].unsqueeze(1)  # Add channel dimension
+        x = self.cnn(x)
+        return self.classifier(x)
+
+
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model, max_len=2000):
+        super().__init__()
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len).unsqueeze(1).float()
+        div_term = torch.exp(torch.arange(0, d_model, 2).float(
+        ) * (-torch.log(torch.tensor(10000.0)) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        return x + self.pe[:, :x.size(1)]
+
+
+class ImprovedEmotionTransformer(MyModel):
+    def __init__(self, input_dim=128, num_classes=4, d_model=128, nhead=8, num_layers=4, dropout=0.7):
+        super().__init__(feature='melspecs')
+        self.input_proj = nn.Linear(input_dim, d_model)
+        self.pos_encoder = PositionalEncoding(d_model)
+
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=d_model, nhead=nhead,
+            dim_feedforward=512, dropout=dropout
+        )
+        self.transformer_encoder = nn.TransformerEncoder(
+            encoder_layer, num_layers=num_layers)
+        self.dropout = nn.Dropout(dropout)
+        self.fc_out = nn.Linear(d_model, num_classes)
+
+    def forward(self, features):
+        x = features[self.feature]  # Get melspecs from input dict
+        x = x.permute(0, 2, 1)  # (B, T, F)
+        x = self.input_proj(x)
+        x = self.pos_encoder(x)
+        x = x.permute(1, 0, 2)  # (T, B, D)
+        x = self.transformer_encoder(x)
+        x = x.mean(dim=0)
+        x = self.dropout(x)
+        return self.fc_out(x)
+
     
 
 class LSTMEncoder(torch.nn.Module):

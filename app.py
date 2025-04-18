@@ -1,3 +1,11 @@
+from data_preparation import (
+    Stereo2Mono,
+    NormaliseMelSpec,
+    TARGET_SAMPLE_RATE,
+    TARGET_AUDIO_LENGTH,
+    INT_TO_LABEL
+)
+from models import ImprovedEmotionTransformer, NilsHMeierCNN, VGGStyleCNN
 import streamlit as st
 import numpy as np
 import torch
@@ -7,35 +15,53 @@ import librosa
 import io
 import os
 
-# Import from your project files
-from models import NilsHMeierCNN
-from data_preparation import (
-    Stereo2Mono,
-    NormaliseMelSpec,
-    TARGET_SAMPLE_RATE,
-    TARGET_AUDIO_LENGTH,
-    INT_TO_LABEL
-)
+os.environ["STREAMLIT_SERVER_ENABLE_STATIC_FILE_WATCHER"] = "false"
 
-# --- Model Loading ---
-# python train.py
-# cp $(ls -td runs/*/ | head -n 1)/best.pt mood_model.pth
-# strea
+WEIGHTS = {
+    'cnn': 0.373,
+    'transformer': 0.527,
+    'vgg': 0.100
+}
 
 
-@st.cache_resource  # Cache the model loading
-def load_pretrained_model(model_path='mood_model.pth', feature='melspecs'):
-    """Loads the pretrained NilsHMeierCNN model."""
+@st.cache_resource
+def load_ensemble_models():
+    """Load both models silently"""
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    # Initialize the model structure (ensure feature matches training)
-    model = NilsHMeierCNN(feature=feature)
-    # Load the saved state dictionary
-    model.load_state_dict(torch.load(model_path, map_location=device))
-    # Set the model to evaluation mode
-    model.eval()
-    # Move model to the appropriate device
-    model.to(device)
-    return model, device
+
+    # Load Nils CNN
+    cnn = NilsHMeierCNN(feature='melspecs')
+    cnn.load_state_dict(torch.load('mood_model.pth', map_location=device))
+    cnn.eval().to(device)
+
+    # Load Transformer
+    transformer = ImprovedEmotionTransformer()
+    transformer.load_state_dict(torch.load(
+        'balanced2.pth', map_location=device))
+    transformer.eval().to(device)
+
+    # Load VGG model
+    vgg = VGGStyleCNN(feature='melspecs')
+    vgg.load_state_dict(torch.load('best_jig.pt', map_location=device))
+    vgg.eval().to(device)
+
+    return cnn, transformer, vgg, device
+
+
+def ensemble_predict(models, features, device):
+    """Combine predictions from all models"""
+    cnn, transformer, vgg = models
+    with torch.no_grad():
+        cnn_out = torch.softmax(cnn(features), dim=1)
+        trans_out = torch.softmax(transformer(features), dim=1)
+        vgg_out = torch.softmax(vgg(features), dim=1)
+
+        probs = (
+            WEIGHTS['cnn'] * cnn_out +
+            WEIGHTS['transformer'] * trans_out +
+            WEIGHTS['vgg'] * vgg_out
+        )
+    return probs
 
 # --- Preprocessing Function ---
 
@@ -125,11 +151,11 @@ st.title("Moodify Music Classifier")
 
 # Load model only once
 try:
-    model, device = load_pretrained_model()  # Use the cached function
-    st.success("Model loaded successfully.")
+    cnn_model, transformer_model, vgg_model, device = load_ensemble_models()  # Add vgg_model
+    st.success("3-Model system loaded successfully")
 except Exception as e:
-    st.error(f"Error loading model: {e}")
-    st.stop()  # Stop execution if model fails to load
+    st.error(f"Error loading models: {e}")
+    st.stop()
 
 
 # File upload section
@@ -149,27 +175,30 @@ with col2:
     clear_button = st.button("Clear Files", on_click=clear_uploaded_files)
 
 
-if run_button and uploaded_files:  # Check if any files are uploaded
+if run_button and uploaded_files:
     results = []
-
-    for uploaded_file in uploaded_files:  # Process each file
+    for uploaded_file in uploaded_files:
         with st.spinner(f'Analyzing {uploaded_file.name}...'):
             try:
                 audio_bytes = uploaded_file.read()
                 input_features = preprocess_audio(audio_bytes, device=device)
 
-                with torch.no_grad():
-                    outputs = model(input_features)
-                    probabilities = torch.nn.functional.softmax(outputs, dim=1)
-                    predicted_idx = probabilities.argmax().item()
-                    predicted_label = get_mood_label(predicted_idx)
+                # Get ensemble prediction
+                combined_probs = ensemble_predict(
+                    (cnn_model, transformer_model, vgg_model),
+                    input_features,
+                    device
+                )
+
+                # Rest of processing remains the same
+                predicted_idx = combined_probs.argmax().item()
+                predicted_label = get_mood_label(predicted_idx)
 
                 results.append({
                     "filename": uploaded_file.name,
                     "label": predicted_label,
-                    "probabilities": probabilities.squeeze().cpu().numpy()
+                    "probabilities": combined_probs.squeeze().cpu().numpy()
                 })
-
             except Exception as e:
                 results.append({
                     "filename": uploaded_file.name,

@@ -1,0 +1,25 @@
+{
+    "best_weights": {
+        "cnn": 0.38000000000000006,
+        "transformer": 0.1,
+        "vgg": 0.5199999999999999
+    },
+    "best_performance": {
+        "accuracy": 0.8272727272727273,
+        "macro_f1": 0.8282858081457454
+    },
+    "individual_model_performance": {
+        "CNN": {
+            "accuracy": 0.6136363636363636,
+            "macro_f1": 0.5174985868416525
+        },
+        "Transformer": {
+            "accuracy": 0.45,
+            "macro_f1": 0.41137489133134625
+        },
+        "VGG": {
+            "accuracy": 0.8090909090909091,
+            "macro_f1": 0.8107795951015004
+        }
+    }
+}
