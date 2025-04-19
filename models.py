@@ -7,13 +7,8 @@ class MyModel(torch.nn.Module, ABC):
     valid_features = ['waveforms', 'spectrograms', 'melspecs', 'mfcc']
 
     @abstractmethod
-    def __init__(self, feature: str):
-        super(MyModel, self).__init__()
-        valid_features = ['waveforms', 'spectrograms', 'melspecs', 'mfcc']
-        if feature not in valid_features:
-            raise ValueError(
-                f'Feature name {feature} is not one of {valid_features}')
-        self.feature = feature
+    def __init__(self, *args, **kwargs):
+        super(MyModel, self).__init__(*args, **kwargs)
 
     @abstractmethod
     def forward(self, features: dict[str, torch.Tensor]):
@@ -22,6 +17,7 @@ class MyModel(torch.nn.Module, ABC):
     @property
     def device(self):
         return torch.device('cuda' if next(self.parameters()).is_cuda else 'cpu')
+
 
 
 class SingleFeatureModel(MyModel, ABC):
@@ -83,7 +79,7 @@ class NilsHMeierCNN(SingleFeatureModel):
         return x    # softmax will be applied in loss function
 
 
-class VGGStyleCNN(MyModel):
+class VGGStyleCNN(SingleFeatureModel):
     """VGG-inspired CNN with batch normalization for 128x323 melspectrograms"""
 
     def __init__(self, feature: str):
@@ -148,7 +144,7 @@ class PositionalEncoding(nn.Module):
         return x + self.pe[:, :x.size(1)]
 
 
-class ImprovedEmotionTransformer(MyModel):
+class ImprovedEmotionTransformer(SingleFeatureModel):
     def __init__(self, input_dim=128, num_classes=4, d_model=128, nhead=8, num_layers=4, dropout=0.7):
         super().__init__(feature='melspecs')
         self.input_proj = nn.Linear(input_dim, d_model)

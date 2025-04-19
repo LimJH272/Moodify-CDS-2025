@@ -30,7 +30,7 @@ def load_ensemble_models():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Load Nils CNN
-    cnn = NilsHMeierCNN(feature='melspecs')
+    cnn = NilsHMeierCNN(feature='melspecs',out_features=4)
     cnn.load_state_dict(torch.load('mood_model.pth', map_location=device))
     cnn.eval().to(device)
 
