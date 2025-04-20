@@ -39,24 +39,24 @@ class MultiClassTrainer:
 
         print("Training start")
 
-        this_run_dir = os.path.join(pyh.get_project_root_dir(), 'runs', model.__class__.__name__ + datetime.datetime.now().strftime("_%Y%m%d-%H%M%S-%f"))
+        this_run_dir = os.path.join(pyh.get_project_root_dir(), 'runs', datetime.datetime.now().strftime("%Y%m%d-%H%M%S-%f_") + model.__class__.__name__)
         os.makedirs(this_run_dir, exist_ok=True)
 
         if take_best:
-            best_epoch = 0
+            best_epoch = -1
             best_model_path = os.path.join(this_run_dir, 'best.pth')
             self.save_model(model, best_model_path)
         final_model_path = os.path.join(this_run_dir, 'final.pth')
 
-        init_train_loss, init_train_acc, _ = self.evaluate_performance(model, train_dset, lambda_val, l1_ratio, show_report=False)
-        init_val_loss, init_val_acc, _ = self.evaluate_performance(model, val_dset, lambda_val, l1_ratio, show_report=False)
+        # init_train_loss, init_train_acc, _ = self.evaluate_performance(model, train_dset, lambda_val, l1_ratio, show_report=False)
+        # init_val_loss, init_val_acc, _ = self.evaluate_performance(model, val_dset, lambda_val, l1_ratio, show_report=False)
 
-        print(f'Epoch 0    Train Loss={init_train_loss:.4f}    Train Acc={init_train_acc :.4f}    Val Loss={init_val_loss:.4f}    Val Acc={init_val_acc :.4f}')
+        # print(f'Epoch 0    Train Loss={init_train_loss:.4f}    Train Acc={init_train_acc :.4f}    Val Loss={init_val_loss:.4f}    Val Acc={init_val_acc :.4f}')
 
-        self.loss_history['train'].append(init_train_loss)
-        self.accuracy_history['train'].append(init_train_acc)
-        self.loss_history['val'].append(init_val_loss)
-        self.accuracy_history['val'].append(init_val_acc)
+        # self.loss_history['train'].append(init_train_loss)
+        # self.accuracy_history['train'].append(init_train_acc)
+        # self.loss_history['val'].append(init_val_loss)
+        # self.accuracy_history['val'].append(init_val_acc)
         
         for i in range(max_epochs):
             model.train()
@@ -75,23 +75,25 @@ class MultiClassTrainer:
             epoch_val_loss, epoch_val_acc, _ = self.evaluate_performance(model, val_dset, lambda_val, l1_ratio, show_report=False)
             
             if take_best:
-                if (
-                    epoch_val_acc > self.accuracy_history['val'][best_epoch] 
-                    # and epoch_val_acc > (epoch_train_acc - 0.01)
+                if len(self.loss_history['train']) == 0:
+                    self.save_model(model, best_model_path)
+                    best_epoch = i
+                elif (
+                    epoch_val_acc > self.accuracy_history['val'][best_epoch]
                 ) or (
                     epoch_val_acc == self.accuracy_history['val'][best_epoch]
                     and epoch_train_acc >= self.accuracy_history['train'][best_epoch]
                     # and epoch_val_acc > (epoch_train_acc - 0.01)
                 ):
                     self.save_model(model, best_model_path)
-                    best_epoch = i+1
+                    best_epoch = i
 
             self.loss_history['train'].append(epoch_train_loss)
             self.accuracy_history['train'].append(epoch_train_acc)
             self.loss_history['val'].append(epoch_val_loss)
             self.accuracy_history['val'].append(epoch_val_acc)
 
-            print(f'Epoch {i+1}    Train Loss={epoch_train_loss:.4f}    Train Acc={epoch_train_acc :.4f}    Val Loss={epoch_val_loss:.4f}    Val Acc={epoch_val_acc :.4f}')
+            print(f'Epoch {i}    Train Loss={epoch_train_loss:.4f}    Train Acc={epoch_train_acc :.4f}    Val Loss={epoch_val_loss:.4f}    Val Acc={epoch_val_acc :.4f}')
         
         print("Saving final model...")
         self.save_model(model, final_model_path)

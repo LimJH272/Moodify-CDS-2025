@@ -126,28 +126,26 @@ def create_dataset(dset_config, train: bool):
     wf_tensor = torch.nn.utils.rnn.pad_sequence(wf_ls, batch_first=True)
     label_tensor = torch.tensor(label_ls)
 
-    n_mels = 128
-    n_fft = 4096
     melspec_tensor = torchaudio.transforms.MelSpectrogram(
         sample_rate=TARGET_SAMPLE_RATE,
-        n_mels=n_mels,
-        n_fft=n_fft, 
+        n_mels=N_MELS,
+        n_fft=N_FFT, 
         center=True,
     )(wf_tensor)
     melspec_tensor = NormaliseMelSpec()(melspec_tensor)
 
     mfcc_tensor = torchaudio.transforms.MFCC(
         sample_rate=TARGET_SAMPLE_RATE,
-        n_mfcc=20,
+        n_mfcc=N_MFCC,
         melkwargs={
-            'n_mels': n_mels,
-            'n_fft': n_fft, 
+            'n_mels': N_MELS,
+            'n_fft': N_FFT, 
             'center': True,
         },
     )(wf_tensor)
 
     spec_tensor = torchaudio.transforms.Spectrogram(
-        n_fft=n_fft, 
+        n_fft=N_FFT, 
         center=True,
     )(wf_tensor)
 
@@ -169,6 +167,52 @@ def create_dataset(dset_config, train: bool):
         'melspecs': melspec_tensor,
         'mfcc': mfcc_tensor,
     }, label_tensor, dset_name, train=train)
+
+def prepare_waveform_features(wf: torch.Tensor, train: bool, label: int|None=None):
+    wf_ls = split_waveform_segments(wf, train=train)
+    wf_tensor = torch.nn.utils.rnn.pad_sequence(wf_ls, batch_first=True)
+
+    melspec_tensor = torchaudio.transforms.MelSpectrogram(
+        sample_rate=TARGET_SAMPLE_RATE,
+        n_mels=N_MELS,
+        n_fft=N_FFT, 
+        center=True,
+    )(wf_tensor)
+    melspec_tensor = NormaliseMelSpec()(melspec_tensor)
+
+    mfcc_tensor = torchaudio.transforms.MFCC(
+        sample_rate=TARGET_SAMPLE_RATE,
+        n_mfcc=N_MFCC,
+        melkwargs={
+            'n_mels': N_MELS,
+            'n_fft': N_FFT, 
+            'center': True,
+        },
+    )(wf_tensor)
+
+    spec_tensor = torchaudio.transforms.Spectrogram(
+        n_fft=N_FFT, 
+        center=True,
+    )(wf_tensor)
+
+    feature_tensor_dict = {
+        'waveforms': wf_tensor,
+        'spectrograms': spec_tensor,
+        'melspecs': melspec_tensor,
+        'mfcc': mfcc_tensor,
+    }
+
+    if label is not None:
+        label_ls = [label] * len(wf_ls)
+        label_tensor = torch.tensor(label_ls)
+
+        return feature_tensor_dict, label_tensor
+
+    return feature_tensor_dict
+
+N_MELS = 128
+N_FFT = 4096
+N_MFCC = 20
 
 
 if __name__ == '__main__':
