@@ -58,7 +58,7 @@ class NilsHMeierCNN(SingleFeatureModel):
             torch.nn.ReLU(),
             torch.nn.MaxPool2d(kernel_size=2, stride=2),
 
-            # torch.nn.Dropout2d(p=0.3), 
+            torch.nn.Dropout2d(p=0.3), 
             torch.nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, padding='same'),  
             torch.nn.ReLU(),         
             torch.nn.MaxPool2d(kernel_size=2, stride=2),      

@@ -2,7 +2,7 @@ import os, datetime
 
 import matplotlib.pyplot as plt
 
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, ConfusionMatrixDisplay
 
 import torch, torchaudio, torchvision
 import torchmetrics
@@ -227,11 +227,11 @@ if __name__ == '__main__':
 
     # print(model.device, trainer.device, train_dset.device, val_dset.device, test_dset.device)
 
-    bs = 16
-    epochs = 100
-    lam = 2.0
+    bs = 8
+    epochs = 500
+    lam = 3.5
     l1_ratio = 0.1
-    lr = 0.0001
+    lr = 0.00001
 
     test_loss, test_acc, test_cm = trainer.evaluate_performance(model, test_dset, lambda_val=lam, l1_ratio=l1_ratio)
     print(f'Test Loss={test_loss:.4f}    Test Acc={test_acc:.4f}')
@@ -244,4 +244,5 @@ if __name__ == '__main__':
 
     test_loss, test_acc, test_cm = trainer.evaluate_performance(model, test_dset, lambda_val=lam, l1_ratio=l1_ratio)
     print(f'Test Loss={test_loss:.4f}    Test Acc={test_acc:.4f}')
-    print(test_cm)
+    ConfusionMatrixDisplay(test_cm.numpy()).plot()
+    plt.show()

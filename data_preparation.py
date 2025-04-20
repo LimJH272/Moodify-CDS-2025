@@ -10,14 +10,14 @@ import python_helpers as pyh
 import pytorch_helpers as pth
 
 ROOT_DIR = pyh.get_project_root_dir()
-TARGET_SAMPLE_RATE = 44100
+TARGET_SAMPLE_RATE = 16000
 TARGET_AUDIO_LENGTH = 15 * TARGET_SAMPLE_RATE
 
 LABEL_TO_INT = {
     "Happy": 0,
     "Sad": 1,
     "Anger": 2,
-    "Neutral": 3,
+    "Fear": 3,
 }
 INT_TO_LABEL = {v: k for k,v in LABEL_TO_INT.items()}
 
@@ -28,6 +28,7 @@ def get_labels_from_file(path: str, audio_ref_col: str, label_col: str, label_ca
     elif file_ext == '.xls' or file_ext == '.xlsx':
         df = pd.read_excel(path, dtype={audio_ref_col: str})
 
+    df.columns = df.columns.str.strip()
     df = df.loc[df[label_col].apply(lambda l: l in label_cats), [audio_ref_col, label_col]]
     df[label_col] = df[label_col].apply(lambda l: label_mapping[l])
     
