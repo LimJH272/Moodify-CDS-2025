@@ -4,28 +4,28 @@
         "subsets": [
             {
                 "subset_name": "SoundTracks Set1",
-                "audios_rel_path": "data/SoundTracks/Set1",
-                "labels_rel_path": "data/SoundTracks/set1_tracklist.csv",
+                "audios_rel_path": "data\\SoundTracks\\Set1\\Set1",
+                "labels_rel_path": "data\\SoundTracks\\set1_tracklist.csv",
                 "audio_ref_col": "Nro",
                 "label_col": "Emotion",
                 "audio_format": ".mp3",
                 "label_categories": [
                     "Happy",
                     "Sad",
-                    "Tender",
+                    "Fear",
                     "Anger"
                 ],
                 "label_mapping": {
                     "Happy": "Happy",
                     "Sad": "Sad",
                     "Anger": "Anger",
-                    "Tender": "Neutral"
+                    "Fear": "Fear"
                 }
             },
             {
                 "subset_name": "SoundTracks Set2",
-                "audios_rel_path": "data/SoundTracks/set2",
-                "labels_rel_path": "data/SoundTracks/set2_tracklist.csv",
+                "audios_rel_path": "data\\SoundTracks\\Set2\\set2",
+                "labels_rel_path": "data\\SoundTracks\\set2_tracklist.csv",
                 "audio_ref_col": "Nro",
                 "label_col": "Emotion",
                 "audio_format": ".mp3",
@@ -34,8 +34,8 @@
                     "Happy Mod.",
                     "Sad High",
                     "Sad Mod.",
-                    "Tender High",
-                    "Tender Mod.",
+                    "Fear High",
+                    "Fear Mod.",
                     "Anger High",
                     "Anger Mod."
                 ],
@@ -44,8 +44,8 @@
                     "Happy Mod.": "Happy",
                     "Sad High": "Sad",
                     "Sad Mod.": "Sad",
-                    "Tender High": "Neutral",
-                    "Tender Mod.": "Neutral",
+                    "Fear High": "Fear",
+                    "Fear Mod.": "Fear",
                     "Anger High": "Anger",
                     "Anger Mod.": "Anger"
                 }
