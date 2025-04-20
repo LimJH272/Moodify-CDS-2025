@@ -1,21 +1,6 @@
-# Moodify: Emotion prediction from music - with playlist guidance
+# Moodify: Emotion prediction from music - with playlist guidance (VGG)
 SUTD 50.038 Computational Data Science Project (2025)
-
-## Table of Contents
-- Problem Statement
-- Background
-- Related Research
-- Datasets
-- Data Preparation
-- Installation & Setup
-
-## Problem Statement
-
-## Background
-
-## Related Research
-
-## Required Datasets
+The branch is for the VGG model
 
 ### SoundTracks
 1. Download the dataset [here](https://osf.io/p6vkg/)
@@ -44,4 +29,10 @@ conda activate python312
 pip install -r requirements.txt
 ```
 
-### 4. Install PyTorch from the [official page](https://pytorch.org/get-started/locally/)
+### 4. Run the data_preparation.py file
+```cmd
+python data_preparation.py
+```
+
+### 5. Run throught the main-vgg.ipynb file
+
